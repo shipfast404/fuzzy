@@ -1,5 +1,5 @@
 import Fuse from 'fuse.js';
-import type { CatalogItem, MatchedLine, NearMiss, MatchResults, Alternative } from './types';
+import type { CatalogItem, MatchedLine, NearMiss, Unmatched, MatchResults, Alternative } from './types';
 
 const ABBREVIATIONS: Record<string, string> = {
   'pce': '', 'pces': '', 'bq': 'barquette', 'bqt': 'barquette',
@@ -70,10 +70,15 @@ export function match(
 
   const matches: MatchedLine[] = [];
   const nearMisses: NearMiss[] = [];
+  const unmatched: Unmatched[] = [];
 
   for (const { idx, text } of marketRows) {
     const hits = fuse.search(normalize(text));
-    if (!hits.length) continue;
+
+    if (!hits.length) {
+      unmatched.push({ marketRowIndex: idx, marketDesignation: text });
+      continue;
+    }
 
     // Score all top candidates by token overlap
     const scored = hits.slice(0, 8).map((h) => {
@@ -86,7 +91,6 @@ export function match(
     const best = scored[0];
 
     if (best.overlap >= MATCH_THRESHOLD) {
-      // Matched — collect alternatives (other candidates above 0.3)
       const alternatives: Alternative[] = scored
         .slice(1, 4)
         .filter((s) => s.overlap >= NEAR_MISS_THRESHOLD)
@@ -107,7 +111,6 @@ export function match(
         alternatives,
       });
     } else if (best.overlap >= NEAR_MISS_THRESHOLD) {
-      // Near miss — didn't make the cut but close
       nearMisses.push({
         marketRowIndex: idx,
         marketDesignation: text,
@@ -116,8 +119,10 @@ export function match(
         bestOverlap: best.overlap,
         catalogRowIndex: best.item.rowIndex,
       });
+    } else {
+      unmatched.push({ marketRowIndex: idx, marketDesignation: text });
     }
   }
 
-  return { matches, nearMisses, totalAo: marketRows.length };
+  return { matches, nearMisses, unmatched, totalAo: marketRows.length };
 }

@@ -42,8 +42,12 @@ export default function VerifyPage() {
           </button>
           <h1 className="text-lg font-semibold text-gray-800">Vérification des matchs</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {matches.length} match{matches.length > 1 ? 's' : ''} confirmé{matches.length > 1 ? 's' : ''}
-            {nearMisses.length > 0 && <> · {nearMisses.length} quasi-match{nearMisses.length > 1 ? 's' : ''}</>}
+            <span className="text-emerald-600 font-medium">{matches.length} confirmé{matches.length > 1 ? 's' : ''}</span>
+            {nearMisses.length > 0 && <><span className="mx-1.5 text-gray-300">·</span><span className="text-amber-600">{nearMisses.length} quasi</span></>}
+            <span className="mx-1.5 text-gray-300">·</span>
+            <span className="text-gray-400">{results.unmatched.length} sans correspondance</span>
+            <span className="mx-1.5 text-gray-300">·</span>
+            <span className="text-gray-400">{results.totalAo} lignes au total</span>
           </p>
         </div>
       </div>
@@ -166,6 +170,28 @@ export default function VerifyPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Unmatched — no correspondence at all ═══ */}
+      {results.unmatched.length > 0 && (
+        <div className="mt-10">
+          <div className="flex items-center gap-2 mb-3">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><circle cx="12" cy="12" r="10" /><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            <h2 className="text-sm font-semibold text-gray-700">Aucune correspondance ({results.unmatched.length})</h2>
+          </div>
+          <p className="text-xs text-gray-500 mb-3">
+            Ces produits de l&apos;appel d&apos;offres n&apos;ont aucune correspondance dans votre catalogue.
+          </p>
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="divide-y divide-gray-100">
+              {results.unmatched.map((u, i) => (
+                <div key={u.marketRowIndex} className={`px-4 py-2 text-sm text-gray-500 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
+                  {u.marketDesignation}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

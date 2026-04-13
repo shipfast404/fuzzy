@@ -39,8 +39,14 @@ export interface NearMiss {
   catalogRowIndex: number;
 }
 
+export interface Unmatched {
+  marketRowIndex: number;
+  marketDesignation: string;
+}
+
 export interface MatchResults {
   matches: MatchedLine[];
   nearMisses: NearMiss[];
+  unmatched: Unmatched[];
   totalAo: number;
 }
