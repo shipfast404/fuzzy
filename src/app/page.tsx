@@ -1,16 +1,19 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { parseExcel } from '@/lib/excel';
-import { exportMatched } from '@/lib/excel';
 import { buildCatalogItems, performMatching } from '@/lib/matching';
-import type { MatchedLine } from '@/lib/matching';
+import { useResults } from '@/context/ResultsContext';
 import type { ParsedFile } from '@/lib/types';
 import { FileUploader } from '@/components/FileUploader';
 import { ColumnMapper } from '@/components/ColumnMapper';
 import { DataPreview } from '@/components/DataPreview';
 
 export default function Home() {
+  const router = useRouter();
+  const { setData } = useResults();
+
   const [catalogFile, setCatalogFile] = useState<ParsedFile | null>(null);
   const [marketFile, setMarketFile] = useState<ParsedFile | null>(null);
   const [catalogCols, setCatalogCols] = useState<Record<string, number | null>>({
@@ -20,15 +23,12 @@ export default function Home() {
   const [marketCols, setMarketCols] = useState<Record<string, number | null>>({
     designation: null,
   });
-  const [results, setResults] = useState<MatchedLine[] | null>(null);
-  const [totalMarket, setTotalMarket] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleCatalogUpload = useCallback(async (file: File) => {
     try {
       setError(null);
-      setResults(null);
       setCatalogFile(await parseExcel(file));
     } catch {
       setError('Erreur de lecture du catalogue');
@@ -38,7 +38,6 @@ export default function Home() {
   const handleMarketUpload = useCallback(async (file: File) => {
     try {
       setError(null);
-      setResults(null);
       setMarketFile(await parseExcel(file));
     } catch {
       setError("Erreur de lecture de l'appel d'offres");
@@ -58,7 +57,6 @@ export default function Home() {
     setLoading(true);
     setError(null);
 
-    // Use setTimeout to let the UI update before heavy computation
     setTimeout(() => {
       try {
         const items = buildCatalogItems(
@@ -74,52 +72,40 @@ export default function Home() {
           }))
           .filter((d) => d.designation.trim() !== '');
 
-        setTotalMarket(marketDesignations.length);
-        setResults(performMatching(marketDesignations, items));
+        const matches = performMatching(marketDesignations, items);
+
+        setData({
+          matches,
+          totalMarket: marketDesignations.length,
+          marketFileName: marketFile.fileName,
+          marketHeaders: marketFile.headers,
+          marketRows: marketFile.rows,
+          catalogHeaders: catalogFile.headers,
+          catalogRows: catalogFile.rows,
+          marketRawFile: marketFile.rawFile,
+          marketHeaderRowIndex: marketFile.headerRowIndex,
+        });
+
+        router.push('/results');
       } catch {
         setError("Erreur lors de l'analyse");
-      } finally {
         setLoading(false);
       }
     }, 50);
-  }, [canLaunch, catalogFile, marketFile, catalogCols, marketCols]);
-
-  const handleExport = useCallback(() => {
-    if (!results || !marketFile) return;
-
-    const blob = exportMatched(
-      marketFile.rawFile,
-      marketFile.headerRowIndex,
-      results
-    );
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = marketFile.fileName.replace(/\.xlsx?$/i, '_matchés.xlsx');
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, [results, marketFile]);
+  }, [canLaunch, catalogFile, marketFile, catalogCols, marketCols, setData, router]);
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-10">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2.5 mb-1">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-600">
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <line x1="3" y1="9" x2="21" y2="9" />
-            <line x1="3" y1="15" x2="21" y2="15" />
-            <line x1="9" y1="3" x2="9" y2="21" />
-            <line x1="15" y1="3" x2="15" y2="21" />
-          </svg>
-          <h1 className="text-lg font-semibold text-slate-800">Appariement appel d&apos;offres</h1>
-        </div>
-        <p className="text-sm text-slate-500">
-          Identifiez les lignes de l&apos;appel d&apos;offres auxquelles vous pouvez répondre avec votre catalogue.
-        </p>
+    <div className="max-w-4xl mx-auto px-6 py-10">
+      {/* Logo */}
+      <div className="flex items-center gap-2 mb-10">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <line x1="3" y1="9" x2="21" y2="9" />
+          <line x1="3" y1="15" x2="21" y2="15" />
+          <line x1="9" y1="3" x2="9" y2="21" />
+          <line x1="15" y1="3" x2="15" y2="21" />
+        </svg>
+        <span className="text-sm font-semibold text-slate-700 tracking-tight">Katalog</span>
       </div>
 
       {error && (
@@ -128,10 +114,10 @@ export default function Home() {
         </div>
       )}
 
-      {/* Upload section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
-          <div className="px-5 py-3 border-b border-slate-100">
+      <div className="space-y-5">
+        {/* Catalogue */}
+        <div className="border border-slate-200 rounded-lg">
+          <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/50">
             <h2 className="text-sm font-medium text-slate-700">Votre catalogue</h2>
           </div>
           <div className="p-5 space-y-4">
@@ -161,8 +147,9 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
-          <div className="px-5 py-3 border-b border-slate-100">
+        {/* Appel d'offres */}
+        <div className="border border-slate-200 rounded-lg">
+          <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/50">
             <h2 className="text-sm font-medium text-slate-700">Appel d&apos;offres</h2>
           </div>
           <div className="p-5 space-y-4">
@@ -193,7 +180,7 @@ export default function Home() {
       </div>
 
       {/* Analyze button */}
-      <div className="flex justify-end mb-10">
+      <div className="flex justify-end mt-6">
         <button
           onClick={handleAnalyze}
           disabled={!canLaunch || loading}
@@ -216,56 +203,6 @@ export default function Home() {
           )}
         </button>
       </div>
-
-      {/* Results */}
-      {results !== null && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-slate-600">
-              <span className="font-semibold text-slate-800">{results.length} produits matchés</span>
-              {' '}sur {totalMarket}
-            </p>
-            {results.length > 0 && (
-              <button
-                onClick={handleExport}
-                className="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                Exporter .xlsx
-              </button>
-            )}
-          </div>
-
-          {results.length === 0 ? (
-            <div className="bg-white border border-slate-200 rounded-lg p-8 text-center">
-              <p className="text-slate-500">Aucune correspondance trouvée entre les deux fichiers.</p>
-            </div>
-          ) : (
-            <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-left">
-                    <th className="px-4 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider w-10">#</th>
-                    <th className="px-4 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider">Produit demandé</th>
-                    <th className="px-4 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider">Votre produit</th>
-                    <th className="px-4 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider w-28">Code</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {results.map((match, i) => (
-                    <tr key={match.rowIndex} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-2.5 text-slate-400 text-xs tabular-nums">{i + 1}</td>
-                      <td className="px-4 py-2.5 text-slate-800">{match.originalDesignation}</td>
-                      <td className="px-4 py-2.5 text-slate-600">{match.matchedDesignation}</td>
-                      <td className="px-4 py-2.5 font-mono text-xs text-slate-500 tabular-nums">{match.matchedCode}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

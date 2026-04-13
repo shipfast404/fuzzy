@@ -85,6 +85,7 @@ export interface MatchedLine {
   originalDesignation: string;
   matchedDesignation: string;
   matchedCode: string;
+  catalogRowIndex: number;
 }
 
 export function performMatching(
@@ -123,6 +124,7 @@ export function performMatching(
         originalDesignation: designation,
         matchedDesignation: best.item.designation,
         matchedCode: best.item.code,
+        catalogRowIndex: best.item.rowIndex,
       });
     }
   }
