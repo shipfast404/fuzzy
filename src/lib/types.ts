@@ -8,8 +8,6 @@ export interface ParsedFile {
 
 export interface MarketMapping {
   designationCol: number;
-  referenceCol: number;
-  denominationCol: number | null;
 }
 
 export interface CatalogMapping {

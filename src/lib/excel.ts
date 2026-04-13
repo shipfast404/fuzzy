@@ -57,51 +57,43 @@ export function exportExcel(
   rawFile: ArrayBuffer,
   headerRowIndex: number,
   matches: MatchResult[],
-  mapping: MarketMapping,
+  _mapping: MarketMapping,
   threshold: number
 ): Blob {
   const workbook = XLSX.read(rawFile, { type: 'array' });
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
 
-  for (const match of matches) {
-    if (match.status === 'ignored' || !match.matchedCode) continue;
-
-    const excelRow = headerRowIndex + 1 + match.rowIndex + 1; // 1-based
-
-    // Fill reference column
-    const refCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: mapping.referenceCol });
-    sheet[refCell] = { t: 's', v: match.matchedCode };
-
-    // Fill denomination column if mapped
-    if (mapping.denominationCol !== null && match.matchedDesignation) {
-      const denCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: mapping.denominationCol });
-      sheet[denCell] = { t: 's', v: match.matchedDesignation };
-    }
-  }
-
-  // Add score + status columns
   const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
-  const scoreCol = range.e.c + 1;
-  const statusCol = range.e.c + 2;
 
-  sheet[XLSX.utils.encode_cell({ r: headerRowIndex, c: scoreCol })] = { t: 's', v: 'Score matching %' };
+  // Append 4 new columns: Match catalogue | Code | Score | Statut
+  const matchCol = range.e.c + 1;
+  const codeCol = range.e.c + 2;
+  const scoreCol = range.e.c + 3;
+  const statusCol = range.e.c + 4;
+
+  sheet[XLSX.utils.encode_cell({ r: headerRowIndex, c: matchCol })] = { t: 's', v: 'Match catalogue' };
+  sheet[XLSX.utils.encode_cell({ r: headerRowIndex, c: codeCol })] = { t: 's', v: 'Code' };
+  sheet[XLSX.utils.encode_cell({ r: headerRowIndex, c: scoreCol })] = { t: 's', v: 'Score %' };
   sheet[XLSX.utils.encode_cell({ r: headerRowIndex, c: statusCol })] = { t: 's', v: 'Statut' };
 
   for (const match of matches) {
-    const excelRow = headerRowIndex + 1 + match.rowIndex + 1;
-    const scoreCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: scoreCol });
-    const statusCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: statusCol });
+    const excelRow = headerRowIndex + 1 + match.rowIndex; // 0-based data row → excel row
+
+    const matchCell = XLSX.utils.encode_cell({ r: excelRow, c: matchCol });
+    const codeCell = XLSX.utils.encode_cell({ r: excelRow, c: codeCol });
+    const scoreCell = XLSX.utils.encode_cell({ r: excelRow, c: scoreCol });
+    const statusCell = XLSX.utils.encode_cell({ r: excelRow, c: statusCol });
 
     if (match.status === 'ignored') {
-      sheet[scoreCell] = { t: 's', v: 'Ignoré' };
       sheet[statusCell] = { t: 's', v: 'Ignoré' };
-    } else if (match.matchedCode) {
+    } else if (match.matchedDesignation) {
+      sheet[matchCell] = { t: 's', v: match.matchedDesignation };
+      sheet[codeCell] = { t: 's', v: match.matchedCode || '' };
       sheet[scoreCell] = { t: 'n', v: Math.round(match.score) };
       const relevant = match.status === 'manual' || match.score >= threshold;
       sheet[statusCell] = { t: 's', v: relevant ? 'Pertinent' : 'Hors périmètre' };
     } else {
-      sheet[scoreCell] = { t: 's', v: 'Non trouvé' };
       sheet[statusCell] = { t: 's', v: 'Hors périmètre' };
     }
   }

@@ -85,7 +85,7 @@ export function MatchTable({ results, catalogItems, threshold, onUpdate }: Match
             <tr className="bg-slate-50 text-left border-b border-slate-200">
               <th className="px-3 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider w-10">#</th>
               <th className="px-3 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider w-28">Statut</th>
-              <th className="px-3 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider">Désignation demandée</th>
+              <th className="px-3 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider">Produit demandé</th>
               <th className="px-3 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider">Correspondance catalogue</th>
               <th className="px-3 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider w-24">Code</th>
               <th className="px-3 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider w-20">Score</th>

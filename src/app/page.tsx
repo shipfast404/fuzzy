@@ -15,64 +15,56 @@ export default function HomePage() {
   const router = useRouter();
   const ctx = useAppContext();
 
-  const [marketFile, setMarketFile] = useState<ParsedFile | null>(null);
   const [catalogFile, setCatalogFile] = useState<ParsedFile | null>(null);
-  const [marketCols, setMarketCols] = useState<Record<string, number | null>>({
-    designation: null,
-    reference: null,
-    denomination: null,
-  });
+  const [marketFile, setMarketFile] = useState<ParsedFile | null>(null);
   const [catalogCols, setCatalogCols] = useState<Record<string, number | null>>({
     designation: null,
     code: null,
   });
+  const [marketCols, setMarketCols] = useState<Record<string, number | null>>({
+    designation: null,
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const handleMarketUpload = useCallback(async (file: File) => {
-    try {
-      setError(null);
-      const parsed = await parseExcel(file);
-      setMarketFile(parsed);
-    } catch {
-      setError('Erreur lors de la lecture du fichier marché public');
-    }
-  }, []);
 
   const handleCatalogUpload = useCallback(async (file: File) => {
     try {
       setError(null);
-      const parsed = await parseExcel(file);
-      setCatalogFile(parsed);
+      setCatalogFile(await parseExcel(file));
     } catch {
       setError('Erreur lors de la lecture du catalogue');
     }
   }, []);
 
+  const handleMarketUpload = useCallback(async (file: File) => {
+    try {
+      setError(null);
+      setMarketFile(await parseExcel(file));
+    } catch {
+      setError("Erreur lors de la lecture de l'appel d'offres");
+    }
+  }, []);
+
   const canLaunch =
-    marketFile &&
     catalogFile &&
-    marketCols.designation !== null &&
-    marketCols.reference !== null &&
+    marketFile &&
     catalogCols.designation !== null &&
-    catalogCols.code !== null;
+    catalogCols.code !== null &&
+    marketCols.designation !== null;
 
   const handleLaunch = useCallback(async () => {
-    if (!canLaunch || !marketFile || !catalogFile) return;
+    if (!canLaunch || !catalogFile || !marketFile) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const marketMapping = {
-        designationCol: marketCols.designation!,
-        referenceCol: marketCols.reference!,
-        denominationCol: marketCols.denomination ?? null,
-      };
-
       const catalogMapping = {
         designationCol: catalogCols.designation!,
         codeCol: catalogCols.code!,
+      };
+      const marketMapping = {
+        designationCol: marketCols.designation!,
       };
 
       const items = buildCatalogItems(
@@ -99,21 +91,11 @@ export default function HomePage() {
 
       router.push('/review');
     } catch {
-      setError('Erreur lors du matching. Vérifiez les colonnes sélectionnées.');
+      setError("Erreur lors de l'analyse. Vérifiez les colonnes sélectionnées.");
     } finally {
       setLoading(false);
     }
-  }, [canLaunch, marketFile, catalogFile, marketCols, catalogCols, ctx, router]);
-
-  const marketHighlightCols = [
-    marketCols.designation,
-    marketCols.reference,
-    marketCols.denomination,
-  ].filter((c): c is number => c !== null);
-
-  const catalogHighlightCols = [catalogCols.designation, catalogCols.code].filter(
-    (c): c is number => c !== null
-  );
+  }, [canLaunch, catalogFile, marketFile, catalogCols, marketCols, ctx, router]);
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
@@ -124,7 +106,7 @@ export default function HomePage() {
           Importer les fichiers
         </h2>
         <p className="text-sm text-slate-500 mt-0.5">
-          Chargez le marché public et le catalogue distributeur, puis mappez les colonnes.
+          Chargez votre catalogue et l&apos;appel d&apos;offres, puis indiquez les colonnes.
         </p>
       </div>
 
@@ -135,58 +117,14 @@ export default function HomePage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Market file */}
+        {/* Catalogue */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
           <div className="px-5 py-3.5 border-b border-slate-100">
-            <h3 className="text-sm font-medium text-slate-700">
-              Fichier marché public
-            </h3>
+            <h3 className="text-sm font-medium text-slate-700">Votre catalogue</h3>
           </div>
           <div className="p-5">
             <FileUploader
-              label="Importer le fichier marché public"
-              onFileSelected={handleMarketUpload}
-              fileName={marketFile?.fileName}
-            />
-            {marketFile && (
-              <div className="mt-4 space-y-4">
-                <ColumnMapper
-                  headers={marketFile.headers}
-                  fields={[
-                    { key: 'designation', label: 'Désignation produit (input)', required: true },
-                    { key: 'reference', label: 'Référence / code (output)', required: true },
-                    { key: 'denomination', label: 'Dénomination (output)', required: false },
-                  ]}
-                  values={marketCols}
-                  onChange={(key, value) =>
-                    setMarketCols((prev) => ({ ...prev, [key]: value }))
-                  }
-                />
-                <div>
-                  <p className="text-xs text-slate-400 mb-2">
-                    Aperçu - {marketFile.rows.length} lignes (en-tête L{marketFile.headerRowIndex + 1})
-                  </p>
-                  <DataPreview
-                    headers={marketFile.headers}
-                    rows={marketFile.rows}
-                    highlightCols={marketHighlightCols}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Catalog file */}
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
-          <div className="px-5 py-3.5 border-b border-slate-100">
-            <h3 className="text-sm font-medium text-slate-700">
-              Catalogue distributeur
-            </h3>
-          </div>
-          <div className="p-5">
-            <FileUploader
-              label="Importer le catalogue distributeur"
+              label="Importer votre catalogue"
               onFileSelected={handleCatalogUpload}
               fileName={catalogFile?.fileName}
             />
@@ -195,8 +133,8 @@ export default function HomePage() {
                 <ColumnMapper
                   headers={catalogFile.headers}
                   fields={[
-                    { key: 'designation', label: 'Désignation produit', required: true },
-                    { key: 'code', label: 'Code / référence', required: true },
+                    { key: 'designation', label: 'Nom produit', required: true },
+                    { key: 'code', label: 'Code produit', required: true },
                   ]}
                   values={catalogCols}
                   onChange={(key, value) =>
@@ -205,12 +143,50 @@ export default function HomePage() {
                 />
                 <div>
                   <p className="text-xs text-slate-400 mb-2">
-                    Aperçu - {catalogFile.rows.length} lignes (en-tête L{catalogFile.headerRowIndex + 1})
+                    Aperçu - {catalogFile.rows.length} lignes
                   </p>
                   <DataPreview
                     headers={catalogFile.headers}
                     rows={catalogFile.rows}
-                    highlightCols={catalogHighlightCols}
+                    highlightCols={[catalogCols.designation, catalogCols.code].filter((c): c is number => c !== null)}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Appel d'offres */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
+          <div className="px-5 py-3.5 border-b border-slate-100">
+            <h3 className="text-sm font-medium text-slate-700">Appel d&apos;offres</h3>
+          </div>
+          <div className="p-5">
+            <FileUploader
+              label="Importer l'appel d'offres"
+              onFileSelected={handleMarketUpload}
+              fileName={marketFile?.fileName}
+            />
+            {marketFile && (
+              <div className="mt-4 space-y-4">
+                <ColumnMapper
+                  headers={marketFile.headers}
+                  fields={[
+                    { key: 'designation', label: 'Produit demandé', required: true },
+                  ]}
+                  values={marketCols}
+                  onChange={(key, value) =>
+                    setMarketCols((prev) => ({ ...prev, [key]: value }))
+                  }
+                />
+                <div>
+                  <p className="text-xs text-slate-400 mb-2">
+                    Aperçu - {marketFile.rows.length} lignes
+                  </p>
+                  <DataPreview
+                    headers={marketFile.headers}
+                    rows={marketFile.rows}
+                    highlightCols={marketCols.designation !== null ? [marketCols.designation] : []}
                   />
                 </div>
               </div>
@@ -221,7 +197,7 @@ export default function HomePage() {
 
       {/* Launch button */}
       <div className="mt-8 flex items-center justify-end gap-3">
-        {!canLaunch && marketFile && catalogFile && (
+        {!canLaunch && catalogFile && marketFile && (
           <p className="text-xs text-slate-400">
             Sélectionnez toutes les colonnes requises
           </p>
@@ -241,11 +217,11 @@ export default function HomePage() {
                 <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
                 <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
               </svg>
-              Appariement en cours...
+              Analyse en cours...
             </>
           ) : (
             <>
-              Lancer l&apos;appariement
+              Lancer l&apos;analyse
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
             </>
           )}
