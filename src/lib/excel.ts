@@ -57,7 +57,8 @@ export function exportExcel(
   rawFile: ArrayBuffer,
   headerRowIndex: number,
   matches: MatchResult[],
-  mapping: MarketMapping
+  mapping: MarketMapping,
+  threshold: number
 ): Blob {
   const workbook = XLSX.read(rawFile, { type: 'array' });
   const sheetName = workbook.SheetNames[0];
@@ -79,27 +80,34 @@ export function exportExcel(
     }
   }
 
-  // Add score column header
+  // Add score + status columns
   const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
   const scoreCol = range.e.c + 1;
-  const scoreHeaderCell = XLSX.utils.encode_cell({ r: headerRowIndex, c: scoreCol });
-  sheet[scoreHeaderCell] = { t: 's', v: 'Score matching %' };
+  const statusCol = range.e.c + 2;
 
-  // Add scores
+  sheet[XLSX.utils.encode_cell({ r: headerRowIndex, c: scoreCol })] = { t: 's', v: 'Score matching %' };
+  sheet[XLSX.utils.encode_cell({ r: headerRowIndex, c: statusCol })] = { t: 's', v: 'Statut' };
+
   for (const match of matches) {
     const excelRow = headerRowIndex + 1 + match.rowIndex + 1;
     const scoreCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: scoreCol });
+    const statusCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: statusCol });
+
     if (match.status === 'ignored') {
       sheet[scoreCell] = { t: 's', v: 'Ignoré' };
+      sheet[statusCell] = { t: 's', v: 'Ignoré' };
     } else if (match.matchedCode) {
       sheet[scoreCell] = { t: 'n', v: Math.round(match.score) };
+      const relevant = match.status === 'manual' || match.score >= threshold;
+      sheet[statusCell] = { t: 's', v: relevant ? 'Pertinent' : 'Hors périmètre' };
     } else {
       sheet[scoreCell] = { t: 's', v: 'Non trouvé' };
+      sheet[statusCell] = { t: 's', v: 'Hors périmètre' };
     }
   }
 
   // Update range
-  range.e.c = scoreCol;
+  range.e.c = statusCol;
   const lastDataRow = headerRowIndex + matches.length;
   if (lastDataRow > range.e.r) range.e.r = lastDataRow;
   sheet['!ref'] = XLSX.utils.encode_range(range);
