@@ -1,37 +1,21 @@
 import Fuse from 'fuse.js';
-import type { CatalogItem, MatchedLine } from './types';
+import type { CatalogItem, MatchedLine, NearMiss, MatchResults, Alternative } from './types';
+
+const ABBREVIATIONS: Record<string, string> = {
+  'pce': '', 'pces': '', 'bq': 'barquette', 'bqt': 'barquette',
+  'sach': 'sachet', 'bt': 'bouteille', 'btl': 'bouteille', 'bte': 'boite',
+  'mg': '', 'ml': 'millilitre', 'cl': 'centilitre', 'lt': 'litre', 'pqt': 'paquet',
+};
 
 export function normalize(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')       // accents
-    .replace(/\d+[,.]?\d*\s*%\s*mg/gi, '') // "40.5%MG"
-    .replace(/\bpce\.?\b/gi, '')           // "Pce"
-    .replace(/\bportions?\b/gi, '')        // "portion(s)"
-    .replace(/[-–—]/g, ' ')               // tirets → espaces
-    .replace(/[^a-z0-9\s]/g, '')           // garde alphanum
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-export function buildCatalog(
-  rows: string[][],
-  designationCol: number,
-  codeCol: number
-): CatalogItem[] {
-  return rows
-    .map((row, i) => {
-      const d = (row[designationCol] || '').trim();
-      if (!d) return null;
-      return {
-        designation: d,
-        normalized: normalize(d),
-        code: (row[codeCol] || '').trim(),
-        rowIndex: i,
-      };
-    })
-    .filter((x): x is CatalogItem => x !== null);
+  let r = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  r = r.replace(/\d+[,.]?\d*\s*%\s*mg/gi, '');
+  r = r.replace(/\bportions?\b/gi, '');
+  for (const [a, f] of Object.entries(ABBREVIATIONS)) {
+    r = r.replace(new RegExp(`\\b${a}\\b`, 'g'), f);
+  }
+  r = r.replace(/[-–—]/g, ' ').replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+  return r;
 }
 
 const STOP = new Set([
@@ -43,7 +27,6 @@ function tokenize(text: string): string[] {
   return normalize(text).split(/\s+/).filter((t) => t.length > 1 && !STOP.has(t));
 }
 
-/** What fraction of catalogTokens appear as substrings in marketText? */
 function tokenOverlap(marketText: string, catalogTokens: string[]): number {
   if (!catalogTokens.length) return 0;
   const n = normalize(marketText);
@@ -54,10 +37,27 @@ function tokenOverlap(marketText: string, catalogTokens: string[]): number {
   return hit / catalogTokens.length;
 }
 
+export function buildCatalog(
+  rows: string[][],
+  designationCol: number,
+  codeCol: number
+): CatalogItem[] {
+  return rows
+    .map((row, i) => {
+      const d = (row[designationCol] || '').trim();
+      if (!d) return null;
+      return { designation: d, normalized: normalize(d), code: (row[codeCol] || '').trim(), rowIndex: i };
+    })
+    .filter((x): x is CatalogItem => x !== null);
+}
+
+const MATCH_THRESHOLD = 0.5;
+const NEAR_MISS_THRESHOLD = 0.3;
+
 export function match(
   marketRows: { idx: number; text: string }[],
   catalog: CatalogItem[]
-): MatchedLine[] {
+): MatchResults {
   const catTokens = catalog.map((c) => tokenize(c.designation));
 
   const fuse = new Fuse(catalog, {
@@ -68,34 +68,56 @@ export function match(
     minMatchCharLength: 3,
   });
 
-  const out: MatchedLine[] = [];
+  const matches: MatchedLine[] = [];
+  const nearMisses: NearMiss[] = [];
 
   for (const { idx, text } of marketRows) {
     const hits = fuse.search(normalize(text));
     if (!hits.length) continue;
 
-    // pick candidate with highest token overlap among top-5 Fuse hits
-    let bestOverlap = 0;
-    let bestItem = hits[0].item;
-    for (const h of hits.slice(0, 5)) {
+    // Score all top candidates by token overlap
+    const scored = hits.slice(0, 8).map((h) => {
       const ci = catalog.indexOf(h.item);
       const ov = tokenOverlap(text, catTokens[ci]);
-      if (ov > bestOverlap) {
-        bestOverlap = ov;
-        bestItem = h.item;
-      }
-    }
+      return { item: h.item, overlap: ov };
+    });
+    scored.sort((a, b) => b.overlap - a.overlap);
 
-    if (bestOverlap >= 0.5) {
-      out.push({
+    const best = scored[0];
+
+    if (best.overlap >= MATCH_THRESHOLD) {
+      // Matched — collect alternatives (other candidates above 0.3)
+      const alternatives: Alternative[] = scored
+        .slice(1, 4)
+        .filter((s) => s.overlap >= NEAR_MISS_THRESHOLD)
+        .map((s) => ({
+          designation: s.item.designation,
+          code: s.item.code,
+          overlap: s.overlap,
+          rowIndex: s.item.rowIndex,
+        }));
+
+      matches.push({
         marketRowIndex: idx,
-        catalogRowIndex: bestItem.rowIndex,
+        catalogRowIndex: best.item.rowIndex,
         marketDesignation: text,
-        catalogDesignation: bestItem.designation,
-        catalogCode: bestItem.code,
+        catalogDesignation: best.item.designation,
+        catalogCode: best.item.code,
+        overlap: best.overlap,
+        alternatives,
+      });
+    } else if (best.overlap >= NEAR_MISS_THRESHOLD) {
+      // Near miss — didn't make the cut but close
+      nearMisses.push({
+        marketRowIndex: idx,
+        marketDesignation: text,
+        bestCandidate: best.item.designation,
+        bestCode: best.item.code,
+        bestOverlap: best.overlap,
+        catalogRowIndex: best.item.rowIndex,
       });
     }
   }
 
-  return out;
+  return { matches, nearMisses, totalAo: marketRows.length };
 }
