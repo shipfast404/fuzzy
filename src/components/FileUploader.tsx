@@ -2,100 +2,66 @@
 
 import { useCallback, useState, useRef } from 'react';
 
-interface FileUploaderProps {
-  label: string;
-  onFileSelected: (file: File) => void;
-  fileName?: string;
-  accept?: string;
-}
-
-function UploadIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
-      <line x1="12" y1="18" x2="12" y2="12" />
-      <polyline points="9 15 12 12 15 15" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600">
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-      <polyline points="22 4 12 14.01 9 11.01" />
-    </svg>
-  );
-}
-
 export function FileUploader({
   label,
-  onFileSelected,
+  onFile,
   fileName,
-  accept = '.xlsx,.xls',
-}: FileUploaderProps) {
-  const [isDragging, setIsDragging] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+}: {
+  label: string;
+  onFile: (f: File) => void;
+  fileName?: string;
+}) {
+  const [drag, setDrag] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
 
-  const handleDrop = useCallback(
+  const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
-      setIsDragging(false);
-      const file = e.dataTransfer.files[0];
-      if (file) onFileSelected(file);
+      setDrag(false);
+      const f = e.dataTransfer.files[0];
+      if (f) onFile(f);
     },
-    [onFileSelected]
-  );
-
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) onFileSelected(file);
-    },
-    [onFileSelected]
+    [onFile]
   );
 
   return (
     <div
       onDragOver={(e) => {
         e.preventDefault();
-        setIsDragging(true);
+        setDrag(true);
       }}
-      onDragLeave={() => setIsDragging(false)}
-      onDrop={handleDrop}
-      onClick={() => inputRef.current?.click()}
-      className={`border border-dashed rounded-lg p-6 text-center cursor-pointer transition-all ${
-        isDragging
-          ? 'border-slate-400 bg-slate-50'
+      onDragLeave={() => setDrag(false)}
+      onDrop={onDrop}
+      onClick={() => ref.current?.click()}
+      className={`border border-dashed rounded-lg p-5 text-center cursor-pointer transition-colors ${
+        drag
+          ? 'border-blue-400 bg-blue-50'
           : fileName
-          ? 'border-emerald-300 bg-emerald-50/50'
-          : 'border-slate-300 hover:border-slate-400 bg-white'
+          ? 'border-emerald-300 bg-emerald-50/40'
+          : 'border-gray-300 hover:border-gray-400'
       }`}
     >
       <input
-        ref={inputRef}
+        ref={ref}
         type="file"
-        accept={accept}
-        onChange={handleChange}
+        accept=".xlsx,.xls"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onFile(f);
+        }}
         className="hidden"
       />
       {fileName ? (
-        <div className="flex items-center justify-center gap-2.5">
-          <CheckIcon />
-          <div className="text-left">
-            <p className="text-sm font-medium text-slate-700">{fileName}</p>
-            <p className="text-xs text-slate-400">Cliquer pour remplacer</p>
-          </div>
+        <div className="flex items-center justify-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+          <span className="text-sm text-gray-700">{fileName}</span>
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-2">
-          <UploadIcon />
-          <p className="text-sm text-slate-600">{label}</p>
-          <p className="text-xs text-slate-400">
-            .xlsx ou .xls
-          </p>
-        </div>
+        <>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto text-gray-300 mb-1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="18" x2="12" y2="12" /><polyline points="9 15 12 12 15 15" /></svg>
+          <p className="text-sm text-gray-500">{label}</p>
+          <p className="text-xs text-gray-400 mt-0.5">.xlsx / .xls</p>
+        </>
       )}
     </div>
   );

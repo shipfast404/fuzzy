@@ -1,55 +1,39 @@
 import * as XLSX from 'xlsx';
-import type { ParsedFile } from './types';
-import type { MatchedLine } from './matching';
+import type { ParsedFile, MatchedLine } from './types';
 
 export function parseExcel(file: File): Promise<ParsedFile> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const data = e.target?.result as ArrayBuffer;
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-
-        const raw: (string | number | boolean | null)[][] = XLSX.utils.sheet_to_json(sheet, {
-          header: 1,
-          defval: '',
-          raw: false,
-        });
-
-        const allRows = raw.map((row) =>
-          row.map((cell) => (cell != null ? String(cell) : ''))
+        const buf = e.target?.result as ArrayBuffer;
+        const wb = XLSX.read(buf, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw: (string | number | boolean | null)[][] = XLSX.utils.sheet_to_json(
+          ws,
+          { header: 1, defval: '', raw: false }
         );
-
-        const headerRowIndex = detectHeaderRow(allRows);
-        const headers = allRows[headerRowIndex] || [];
-        const dataRows = allRows.slice(headerRowIndex + 1).filter((row) =>
-          row.some((cell) => cell.trim() !== '')
-        );
-
+        const rows = raw.map((r) => r.map((c) => (c != null ? String(c) : '')));
+        const hdr = detectHeader(rows);
         resolve({
           fileName: file.name,
-          headers,
-          rows: dataRows,
-          headerRowIndex,
-          rawFile: data,
+          headers: rows[hdr] || [],
+          rows: rows.slice(hdr + 1).filter((r) => r.some((c) => c.trim())),
+          headerRowIndex: hdr,
+          rawFile: buf,
         });
       } catch (err) {
         reject(err);
       }
     };
-    reader.onerror = () => reject(new Error('Erreur de lecture du fichier'));
+    reader.onerror = () => reject(new Error('Lecture impossible'));
     reader.readAsArrayBuffer(file);
   });
 }
 
-function detectHeaderRow(rows: string[][]): number {
+function detectHeader(rows: string[][]): number {
   for (let i = 0; i < Math.min(rows.length, 10); i++) {
-    const nonEmptyCells = rows[i].filter((cell) => cell.trim() !== '').length;
-    if (nonEmptyCells >= 3) {
-      return i;
-    }
+    if (rows[i].filter((c) => c.trim()).length >= 3) return i;
   }
   return 0;
 }
@@ -59,41 +43,35 @@ export function exportMatched(
   headerRowIndex: number,
   matches: MatchedLine[]
 ): Blob {
-  const workbook = XLSX.read(rawFile, { type: 'array' });
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
-  const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
+  const wb = XLSX.read(rawFile, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  const cols = range.e.c + 1;
 
-  // Build a new workbook with only matched rows
-  const newWb = XLSX.utils.book_new();
-
-  // Get all original columns from the header row
-  const colCount = range.e.c + 1;
-  const headerRow: string[] = [];
-  for (let c = 0; c < colCount; c++) {
-    const cell = sheet[XLSX.utils.encode_cell({ r: headerRowIndex, c })];
-    headerRow.push(cell ? String(cell.v) : '');
+  // header row
+  const hdr: string[] = [];
+  for (let c = 0; c < cols; c++) {
+    const cell = ws[XLSX.utils.encode_cell({ r: headerRowIndex, c })];
+    hdr.push(cell ? String(cell.v) : '');
   }
-  headerRow.push('Produit catalogue', 'Code');
+  hdr.push('Match catalogue', 'Code catalogue');
 
-  const aoa: string[][] = [headerRow];
-
-  for (const match of matches) {
-    const excelRow = headerRowIndex + 1 + match.rowIndex;
+  const aoa: string[][] = [hdr];
+  for (const m of matches) {
+    const r = headerRowIndex + 1 + m.marketRowIndex;
     const row: string[] = [];
-    for (let c = 0; c < colCount; c++) {
-      const cell = sheet[XLSX.utils.encode_cell({ r: excelRow, c })];
+    for (let c = 0; c < cols; c++) {
+      const cell = ws[XLSX.utils.encode_cell({ r, c })];
       row.push(cell ? String(cell.v) : '');
     }
-    row.push(match.matchedDesignation, match.matchedCode);
+    row.push(m.catalogDesignation, m.catalogCode);
     aoa.push(row);
   }
 
-  const newSheet = XLSX.utils.aoa_to_sheet(aoa);
-  XLSX.utils.book_append_sheet(newWb, newSheet, 'Résultats');
-
-  const output = XLSX.write(newWb, { type: 'array', bookType: 'xlsx' });
-  return new Blob([output], {
+  const newWb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(newWb, XLSX.utils.aoa_to_sheet(aoa), 'Résultats');
+  const out = XLSX.write(newWb, { type: 'array', bookType: 'xlsx' });
+  return new Blob([out], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
 }

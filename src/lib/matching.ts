@@ -1,133 +1,101 @@
 import Fuse from 'fuse.js';
-import type { CatalogItem } from './types';
-
-const ABBREVIATIONS: Record<string, string> = {
-  'pce': 'piece',
-  'pces': 'pieces',
-  'bq': 'barquette',
-  'bqt': 'barquette',
-  'sach': 'sachet',
-  'bt': 'bouteille',
-  'btl': 'bouteille',
-  'bte': 'boite',
-  'kg': 'kilogramme',
-  'mg': '',
-  'ml': 'millilitre',
-  'cl': 'centilitre',
-  'lt': 'litre',
-  'pqt': 'paquet',
-  'rlx': 'rouleau',
-  'bdl': 'barquette',
-  'uvc': '',
-};
-
-const STOP_WORDS = new Set([
-  'de', 'du', 'des', 'le', 'la', 'les', 'un', 'une', 'et', 'ou', 'au', 'aux',
-  'en', 'a', 'piece', 'portion', 'par', 'pour', 'avec', 'sans',
-]);
+import type { CatalogItem, MatchedLine } from './types';
 
 export function normalize(text: string): string {
-  let result = text
+  return text
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-
-  result = result.replace(/[\d.,]+%\w*/g, '');
-
-  for (const [abbr, full] of Object.entries(ABBREVIATIONS)) {
-    result = result.replace(new RegExp(`\\b${abbr}\\b`, 'g'), full);
-  }
-
-  result = result.replace(/[^a-z0-9\s]/g, ' ');
-  result = result.replace(/\s+/g, ' ').trim();
-
-  return result;
+    .replace(/[\u0300-\u036f]/g, '')       // accents
+    .replace(/\d+[,.]?\d*\s*%\s*mg/gi, '') // "40.5%MG"
+    .replace(/\bpce\.?\b/gi, '')           // "Pce"
+    .replace(/\bportions?\b/gi, '')        // "portion(s)"
+    .replace(/[-–—]/g, ' ')               // tirets → espaces
+    .replace(/[^a-z0-9\s]/g, '')           // garde alphanum
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-function tokenize(text: string): string[] {
-  return normalize(text)
-    .split(/\s+/)
-    .filter((t) => t.length > 1 && !STOP_WORDS.has(t));
-}
-
-function tokenContainment(marketText: string, catalogTokens: string[]): number {
-  if (catalogTokens.length === 0) return 0;
-  const marketNorm = normalize(marketText);
-  let matched = 0;
-  for (const token of catalogTokens) {
-    if (marketNorm.includes(token)) matched++;
-  }
-  return matched / catalogTokens.length;
-}
-
-export function buildCatalogItems(
+export function buildCatalog(
   rows: string[][],
   designationCol: number,
   codeCol: number
 ): CatalogItem[] {
   return rows
-    .map((row, index) => {
-      const designation = row[designationCol] || '';
-      const code = row[codeCol] || '';
-      if (!designation.trim()) return null;
+    .map((row, i) => {
+      const d = (row[designationCol] || '').trim();
+      if (!d) return null;
       return {
-        designation: designation.trim(),
-        designationNormalized: normalize(designation),
-        code: code.trim(),
-        rowIndex: index,
+        designation: d,
+        normalized: normalize(d),
+        code: (row[codeCol] || '').trim(),
+        rowIndex: i,
       };
     })
-    .filter((item): item is CatalogItem => item !== null);
+    .filter((x): x is CatalogItem => x !== null);
 }
 
-export interface MatchedLine {
-  rowIndex: number;
-  originalDesignation: string;
-  matchedDesignation: string;
-  matchedCode: string;
-  catalogRowIndex: number;
+const STOP = new Set([
+  'de', 'du', 'des', 'le', 'la', 'les', 'un', 'une', 'et', 'ou',
+  'au', 'aux', 'en', 'a', 'par', 'pour', 'avec', 'sans',
+]);
+
+function tokenize(text: string): string[] {
+  return normalize(text).split(/\s+/).filter((t) => t.length > 1 && !STOP.has(t));
 }
 
-export function performMatching(
-  marketDesignations: { rowIndex: number; designation: string }[],
-  catalogItems: CatalogItem[]
+/** What fraction of catalogTokens appear as substrings in marketText? */
+function tokenOverlap(marketText: string, catalogTokens: string[]): number {
+  if (!catalogTokens.length) return 0;
+  const n = normalize(marketText);
+  let hit = 0;
+  for (const t of catalogTokens) {
+    if (n.includes(t)) hit++;
+  }
+  return hit / catalogTokens.length;
+}
+
+export function match(
+  marketRows: { idx: number; text: string }[],
+  catalog: CatalogItem[]
 ): MatchedLine[] {
-  const catalogTokensMap = catalogItems.map((item) => tokenize(item.designation));
+  const catTokens = catalog.map((c) => tokenize(c.designation));
 
-  const fuse = new Fuse(catalogItems, {
+  const fuse = new Fuse(catalog, {
     includeScore: true,
     threshold: 0.6,
-    keys: ['designationNormalized'],
+    keys: ['normalized'],
     ignoreLocation: true,
-    minMatchCharLength: 2,
+    minMatchCharLength: 3,
   });
 
-  const results: MatchedLine[] = [];
+  const out: MatchedLine[] = [];
 
-  for (const { rowIndex, designation } of marketDesignations) {
-    const hits = fuse.search(normalize(designation));
-    if (hits.length === 0) continue;
+  for (const { idx, text } of marketRows) {
+    const hits = fuse.search(normalize(text));
+    if (!hits.length) continue;
 
-    // Re-rank top candidates by token containment
-    const scored = hits.slice(0, 5).map((h) => {
-      const catIdx = catalogItems.indexOf(h.item);
-      const ct = tokenContainment(designation, catalogTokensMap[catIdx]);
-      return { item: h.item, ct };
-    });
-    scored.sort((a, b) => b.ct - a.ct);
-    const best = scored[0];
+    // pick candidate with highest token overlap among top-5 Fuse hits
+    let bestOverlap = 0;
+    let bestItem = hits[0].item;
+    for (const h of hits.slice(0, 5)) {
+      const ci = catalog.indexOf(h.item);
+      const ov = tokenOverlap(text, catTokens[ci]);
+      if (ov > bestOverlap) {
+        bestOverlap = ov;
+        bestItem = h.item;
+      }
+    }
 
-    // Only keep if at least half the catalog tokens appear in the market description
-    if (best.ct >= 0.5) {
-      results.push({
-        rowIndex,
-        originalDesignation: designation,
-        matchedDesignation: best.item.designation,
-        matchedCode: best.item.code,
-        catalogRowIndex: best.item.rowIndex,
+    if (bestOverlap >= 0.5) {
+      out.push({
+        marketRowIndex: idx,
+        catalogRowIndex: bestItem.rowIndex,
+        marketDesignation: text,
+        catalogDesignation: bestItem.designation,
+        catalogCode: bestItem.code,
       });
     }
   }
 
-  return results;
+  return out;
 }

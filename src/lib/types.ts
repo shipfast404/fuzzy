@@ -8,7 +8,15 @@ export interface ParsedFile {
 
 export interface CatalogItem {
   designation: string;
-  designationNormalized: string;
+  normalized: string;
   code: string;
   rowIndex: number;
+}
+
+export interface MatchedLine {
+  marketRowIndex: number;
+  catalogRowIndex: number;
+  marketDesignation: string;
+  catalogDesignation: string;
+  catalogCode: string;
 }
