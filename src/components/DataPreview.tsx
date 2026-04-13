@@ -17,15 +17,15 @@ export function DataPreview({ headers, rows, maxRows = 5, highlightCols = [] }: 
   if (visibleHeaders.length === 0) return null;
 
   return (
-    <div className="overflow-x-auto border border-gray-200 rounded-lg">
+    <div className="overflow-x-auto border border-slate-200 rounded-lg">
       <table className="min-w-full text-xs">
         <thead>
-          <tr className="bg-gray-50">
+          <tr className="bg-slate-50">
             {visibleIndices.map((colIdx) => (
               <th
                 key={colIdx}
-                className={`px-3 py-2 text-left font-medium text-gray-600 border-b ${
-                  highlightCols.includes(colIdx) ? 'bg-blue-50 text-blue-700' : ''
+                className={`px-2.5 py-2 text-left font-medium text-slate-500 border-b border-slate-200 ${
+                  highlightCols.includes(colIdx) ? 'bg-slate-100 text-slate-700' : ''
                 }`}
               >
                 {headers[colIdx] || `Col ${colIdx + 1}`}
@@ -35,12 +35,12 @@ export function DataPreview({ headers, rows, maxRows = 5, highlightCols = [] }: 
         </thead>
         <tbody>
           {previewRows.map((row, rowIdx) => (
-            <tr key={rowIdx} className="border-b border-gray-100">
+            <tr key={rowIdx} className="border-b border-slate-50">
               {visibleIndices.map((colIdx) => (
                 <td
                   key={colIdx}
-                  className={`px-3 py-1.5 text-gray-700 max-w-[200px] truncate ${
-                    highlightCols.includes(colIdx) ? 'bg-blue-50/50' : ''
+                  className={`px-2.5 py-1.5 text-slate-600 max-w-[180px] truncate ${
+                    highlightCols.includes(colIdx) ? 'bg-slate-50/80' : ''
                   }`}
                 >
                   {row[colIdx] || ''}
@@ -51,8 +51,8 @@ export function DataPreview({ headers, rows, maxRows = 5, highlightCols = [] }: 
         </tbody>
       </table>
       {rows.length > maxRows && (
-        <div className="px-3 py-1.5 text-xs text-gray-400 bg-gray-50">
-          ... et {rows.length - maxRows} lignes supplémentaires
+        <div className="px-2.5 py-1.5 text-[11px] text-slate-400 bg-slate-50 border-t border-slate-100">
+          + {rows.length - maxRows} lignes
         </div>
       )}
     </div>

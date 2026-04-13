@@ -1,43 +1,44 @@
 'use client';
 
 const STEPS = [
-  { label: 'Import', description: 'Upload et mapping' },
-  { label: 'Review', description: 'Vérification des matchs' },
-  { label: 'Export', description: 'Téléchargement' },
+  { label: 'Import' },
+  { label: 'Vérification' },
+  { label: 'Export' },
 ];
 
 export function Stepper({ currentStep }: { currentStep: number }) {
   return (
-    <div className="flex items-center justify-center gap-2 mb-8">
+    <div className="flex items-center justify-center gap-1 mb-8">
       {STEPS.map((step, i) => (
         <div key={step.label} className="flex items-center">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
                 i < currentStep
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-emerald-600 text-white'
                   : i === currentStep
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-500'
+                  ? 'bg-slate-800 text-white'
+                  : 'bg-slate-200 text-slate-400'
               }`}
             >
-              {i < currentStep ? '✓' : i + 1}
+              {i < currentStep ? (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+              ) : (
+                i + 1
+              )}
             </div>
-            <div>
-              <div
-                className={`text-sm font-medium ${
-                  i <= currentStep ? 'text-gray-900' : 'text-gray-400'
-                }`}
-              >
-                {step.label}
-              </div>
-              <div className="text-xs text-gray-400">{step.description}</div>
-            </div>
+            <span
+              className={`text-xs font-medium ${
+                i <= currentStep ? 'text-slate-700' : 'text-slate-400'
+              }`}
+            >
+              {step.label}
+            </span>
           </div>
           {i < STEPS.length - 1 && (
             <div
-              className={`w-16 h-0.5 mx-3 ${
-                i < currentStep ? 'bg-blue-600' : 'bg-gray-200'
+              className={`w-12 h-px mx-2 ${
+                i < currentStep ? 'bg-emerald-600' : 'bg-slate-200'
               }`}
             />
           )}

@@ -11,15 +11,9 @@ interface MatchTableProps {
 }
 
 function scoreColor(score: number): string {
-  if (score >= 80) return 'bg-green-100 text-green-800';
-  if (score >= 50) return 'bg-orange-100 text-orange-800';
-  return 'bg-red-100 text-red-800';
-}
-
-function scoreBadge(score: number): string {
-  if (score >= 80) return 'Bon';
-  if (score >= 50) return 'Moyen';
-  return 'Faible';
+  if (score >= 80) return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+  if (score >= 50) return 'bg-amber-50 text-amber-700 border border-amber-200';
+  return 'bg-red-50 text-red-600 border border-red-200';
 }
 
 type SortKey = 'index' | 'score';
@@ -51,100 +45,76 @@ export function MatchTable({ results, catalogItems, onUpdate }: MatchTableProps)
     ignored: results.filter((r) => r.status === 'ignored').length,
   };
 
+  const filterBtn = (key: FilterKey, label: string, count: number, colors: string) => (
+    <button
+      onClick={() => setFilter(key)}
+      className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+        filter === key ? colors : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'
+      }`}
+    >
+      {label} <span className="ml-0.5 opacity-70">{count}</span>
+    </button>
+  );
+
   return (
     <div>
-      {/* Stats bar */}
-      <div className="flex gap-3 mb-4 flex-wrap">
-        <button
-          onClick={() => setFilter('all')}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-            filter === 'all' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          Tous ({stats.total})
-        </button>
-        <button
-          onClick={() => setFilter('good')}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-            filter === 'good' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100'
-          }`}
-        >
-          Bons ({stats.good})
-        </button>
-        <button
-          onClick={() => setFilter('medium')}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-            filter === 'medium' ? 'bg-orange-500 text-white' : 'bg-orange-50 text-orange-700 hover:bg-orange-100'
-          }`}
-        >
-          Moyens ({stats.medium})
-        </button>
-        <button
-          onClick={() => setFilter('low')}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-            filter === 'low' ? 'bg-red-500 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'
-          }`}
-        >
-          Faibles ({stats.low})
-        </button>
-        <button
-          onClick={() => setFilter('ignored')}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-            filter === 'ignored' ? 'bg-gray-500 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
-          }`}
-        >
-          Ignorés ({stats.ignored})
-        </button>
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        {filterBtn('all', 'Tous', stats.total, 'bg-slate-800 text-white border border-slate-800')}
+        {filterBtn('good', 'Fiables', stats.good, 'bg-emerald-600 text-white border border-emerald-600')}
+        {filterBtn('medium', 'A vérifier', stats.medium, 'bg-amber-500 text-white border border-amber-500')}
+        {filterBtn('low', 'Faibles', stats.low, 'bg-red-500 text-white border border-red-500')}
+        {filterBtn('ignored', 'Ignorés', stats.ignored, 'bg-slate-500 text-white border border-slate-500')}
         <div className="flex-1" />
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as SortKey)}
-          className="border border-gray-200 rounded px-2 py-1 text-xs bg-white"
+          className="border border-slate-200 rounded px-2 py-1.5 text-xs bg-white text-slate-600"
         >
-          <option value="index">Tri par ligne</option>
-          <option value="score">Tri par score</option>
+          <option value="index">Ordre du fichier</option>
+          <option value="score">Par score</option>
         </select>
       </div>
 
       {/* Table */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 text-left">
-              <th className="px-3 py-2.5 font-medium text-gray-600 w-8">#</th>
-              <th className="px-3 py-2.5 font-medium text-gray-600">Désignation demandée</th>
-              <th className="px-3 py-2.5 font-medium text-gray-600">Match trouvé</th>
-              <th className="px-3 py-2.5 font-medium text-gray-600 w-24">Code</th>
-              <th className="px-3 py-2.5 font-medium text-gray-600 w-20">Score</th>
-              <th className="px-3 py-2.5 font-medium text-gray-600 w-36">Actions</th>
+            <tr className="bg-slate-50 text-left border-b border-slate-200">
+              <th className="px-3 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider w-10">#</th>
+              <th className="px-3 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider">Désignation demandée</th>
+              <th className="px-3 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider">Correspondance catalogue</th>
+              <th className="px-3 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider w-24">Code</th>
+              <th className="px-3 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider w-20">Score</th>
+              <th className="px-3 py-2.5 font-medium text-slate-500 text-xs uppercase tracking-wider w-32"></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-100">
             {sorted.map((result) => (
               <tr
                 key={result.rowIndex}
-                className={`border-t border-gray-100 ${
-                  result.status === 'ignored' ? 'opacity-50' : ''
+                className={`hover:bg-slate-50/50 ${
+                  result.status === 'ignored' ? 'opacity-40' : ''
                 }`}
               >
-                <td className="px-3 py-2 text-gray-400 text-xs">{result.rowIndex + 1}</td>
-                <td className="px-3 py-2 text-gray-800 max-w-[300px]">
-                  <div className="truncate" title={result.originalDesignation}>
+                <td className="px-3 py-2.5 text-slate-400 text-xs tabular-nums">{result.rowIndex + 1}</td>
+                <td className="px-3 py-2.5 text-slate-800">
+                  <div className="truncate max-w-[280px]" title={result.originalDesignation}>
                     {result.originalDesignation}
                   </div>
                 </td>
-                <td className="px-3 py-2 relative">
+                <td className="px-3 py-2.5 relative">
                   {result.status === 'ignored' ? (
-                    <span className="text-gray-400 italic">Ignoré</span>
+                    <span className="text-slate-400 italic text-xs">Ignoré</span>
                   ) : result.matchedDesignation ? (
-                    <div className="truncate max-w-[300px]" title={result.matchedDesignation}>
-                      {result.matchedDesignation}
+                    <div className="truncate max-w-[280px]" title={result.matchedDesignation}>
+                      <span className="text-slate-700">{result.matchedDesignation}</span>
                       {result.status === 'manual' && (
-                        <span className="ml-1 text-xs text-blue-500">(modifié)</span>
+                        <span className="ml-1.5 text-[10px] font-medium text-indigo-500 bg-indigo-50 px-1 py-0.5 rounded">modifié</span>
                       )}
                     </div>
                   ) : (
-                    <span className="text-gray-400 italic">Aucun match</span>
+                    <span className="text-slate-300 text-xs">-</span>
                   )}
                   {editingRow === result.rowIndex && (
                     <SearchDropdown
@@ -162,24 +132,24 @@ export function MatchTable({ results, catalogItems, onUpdate }: MatchTableProps)
                     />
                   )}
                 </td>
-                <td className="px-3 py-2 font-mono text-xs text-gray-600">
+                <td className="px-3 py-2.5 font-mono text-xs text-slate-500 tabular-nums">
                   {result.matchedCode || '-'}
                 </td>
-                <td className="px-3 py-2">
-                  {result.status !== 'ignored' && (
+                <td className="px-3 py-2.5">
+                  {result.status !== 'ignored' && result.score > 0 && (
                     <span
-                      className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${scoreColor(result.score)}`}
+                      className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-medium tabular-nums ${scoreColor(result.score)}`}
                     >
-                      {result.score}% {scoreBadge(result.score)}
+                      {result.score}%
                     </span>
                   )}
                 </td>
-                <td className="px-3 py-2">
-                  <div className="flex gap-1">
+                <td className="px-3 py-2.5">
+                  <div className="flex gap-1 justify-end">
                     {result.status !== 'ignored' && (
                       <button
                         onClick={() => setEditingRow(result.rowIndex)}
-                        className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
+                        className="px-2 py-1 text-xs text-slate-600 rounded hover:bg-slate-100 transition-colors"
                       >
                         Corriger
                       </button>
@@ -195,8 +165,8 @@ export function MatchTable({ results, catalogItems, onUpdate }: MatchTableProps)
                       }
                       className={`px-2 py-1 text-xs rounded transition-colors ${
                         result.status === 'ignored'
-                          ? 'bg-green-50 text-green-600 hover:bg-green-100'
-                          : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                          ? 'text-emerald-600 hover:bg-emerald-50'
+                          : 'text-slate-400 hover:bg-slate-100'
                       }`}
                     >
                       {result.status === 'ignored' ? 'Restaurer' : 'Ignorer'}
@@ -208,7 +178,7 @@ export function MatchTable({ results, catalogItems, onUpdate }: MatchTableProps)
           </tbody>
         </table>
         {sorted.length === 0 && (
-          <div className="px-4 py-8 text-center text-gray-400 text-sm">
+          <div className="px-4 py-8 text-center text-slate-400 text-sm">
             Aucun résultat pour ce filtre
           </div>
         )}

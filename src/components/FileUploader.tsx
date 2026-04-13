@@ -9,6 +9,26 @@ interface FileUploaderProps {
   accept?: string;
 }
 
+function UploadIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="12" y1="18" x2="12" y2="12" />
+      <polyline points="9 15 12 12 15 15" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+      <polyline points="22 4 12 14.01 9 11.01" />
+    </svg>
+  );
+}
+
 export function FileUploader({
   label,
   onFileSelected,
@@ -45,12 +65,12 @@ export function FileUploader({
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
-      className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+      className={`border border-dashed rounded-lg p-6 text-center cursor-pointer transition-all ${
         isDragging
-          ? 'border-blue-500 bg-blue-50'
+          ? 'border-slate-400 bg-slate-50'
           : fileName
-          ? 'border-green-300 bg-green-50'
-          : 'border-gray-300 hover:border-gray-400 bg-gray-50'
+          ? 'border-emerald-300 bg-emerald-50/50'
+          : 'border-slate-300 hover:border-slate-400 bg-white'
       }`}
     >
       <input
@@ -61,17 +81,19 @@ export function FileUploader({
         className="hidden"
       />
       {fileName ? (
-        <div>
-          <div className="text-green-600 text-lg mb-1">&#10003;</div>
-          <p className="text-sm font-medium text-gray-700">{fileName}</p>
-          <p className="text-xs text-gray-400 mt-1">Cliquer pour changer de fichier</p>
+        <div className="flex items-center justify-center gap-2.5">
+          <CheckIcon />
+          <div className="text-left">
+            <p className="text-sm font-medium text-slate-700">{fileName}</p>
+            <p className="text-xs text-slate-400">Cliquer pour remplacer</p>
+          </div>
         </div>
       ) : (
-        <div>
-          <div className="text-gray-400 text-2xl mb-2">&#8593;</div>
-          <p className="text-sm font-medium text-gray-700">{label}</p>
-          <p className="text-xs text-gray-400 mt-1">
-            Glisser-déposer ou cliquer pour sélectionner (.xlsx, .xls)
+        <div className="flex flex-col items-center gap-2">
+          <UploadIcon />
+          <p className="text-sm text-slate-600">{label}</p>
+          <p className="text-xs text-slate-400">
+            .xlsx ou .xls
           </p>
         </div>
       )}

@@ -119,12 +119,12 @@ export default function HomePage() {
     <div className="max-w-5xl mx-auto px-6 py-8">
       <Stepper currentStep={0} />
 
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-semibold text-gray-800">
-          Matching automatique
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold text-slate-800">
+          Importer les fichiers
         </h2>
-        <p className="text-gray-500 mt-1">
-          Importez votre fichier marché public et votre catalogue distributeur
+        <p className="text-sm text-slate-500 mt-0.5">
+          Chargez le marché public et le catalogue distributeur, puis mappez les colonnes.
         </p>
       </div>
 
@@ -134,101 +134,122 @@ export default function HomePage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Market file */}
-        <div className="bg-white rounded-lg border border-gray-200 p-5">
-          <h3 className="text-base font-medium text-gray-800 mb-4">
-            1. Fichier marché public
-          </h3>
-          <FileUploader
-            label="Importer le fichier marché public"
-            onFileSelected={handleMarketUpload}
-            fileName={marketFile?.fileName}
-          />
-          {marketFile && (
-            <div className="mt-4 space-y-4">
-              <ColumnMapper
-                headers={marketFile.headers}
-                fields={[
-                  { key: 'designation', label: 'Colonne désignation produit (input)', required: true },
-                  { key: 'reference', label: 'Colonne référence / code (output)', required: true },
-                  { key: 'denomination', label: 'Colonne dénomination (output)', required: false },
-                ]}
-                values={marketCols}
-                onChange={(key, value) =>
-                  setMarketCols((prev) => ({ ...prev, [key]: value }))
-                }
-              />
-              <div className="mt-3">
-                <p className="text-xs text-gray-500 mb-2">
-                  Aperçu ({marketFile.rows.length} lignes, en-tête ligne {marketFile.headerRowIndex + 1})
-                </p>
-                <DataPreview
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
+          <div className="px-5 py-3.5 border-b border-slate-100">
+            <h3 className="text-sm font-medium text-slate-700">
+              Fichier marché public
+            </h3>
+          </div>
+          <div className="p-5">
+            <FileUploader
+              label="Importer le fichier marché public"
+              onFileSelected={handleMarketUpload}
+              fileName={marketFile?.fileName}
+            />
+            {marketFile && (
+              <div className="mt-4 space-y-4">
+                <ColumnMapper
                   headers={marketFile.headers}
-                  rows={marketFile.rows}
-                  highlightCols={marketHighlightCols}
+                  fields={[
+                    { key: 'designation', label: 'Désignation produit (input)', required: true },
+                    { key: 'reference', label: 'Référence / code (output)', required: true },
+                    { key: 'denomination', label: 'Dénomination (output)', required: false },
+                  ]}
+                  values={marketCols}
+                  onChange={(key, value) =>
+                    setMarketCols((prev) => ({ ...prev, [key]: value }))
+                  }
                 />
+                <div>
+                  <p className="text-xs text-slate-400 mb-2">
+                    Aperçu - {marketFile.rows.length} lignes (en-tête L{marketFile.headerRowIndex + 1})
+                  </p>
+                  <DataPreview
+                    headers={marketFile.headers}
+                    rows={marketFile.rows}
+                    highlightCols={marketHighlightCols}
+                  />
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Catalog file */}
-        <div className="bg-white rounded-lg border border-gray-200 p-5">
-          <h3 className="text-base font-medium text-gray-800 mb-4">
-            2. Catalogue distributeur
-          </h3>
-          <FileUploader
-            label="Importer le catalogue distributeur"
-            onFileSelected={handleCatalogUpload}
-            fileName={catalogFile?.fileName}
-          />
-          {catalogFile && (
-            <div className="mt-4 space-y-4">
-              <ColumnMapper
-                headers={catalogFile.headers}
-                fields={[
-                  { key: 'designation', label: 'Colonne désignation produit', required: true },
-                  { key: 'code', label: 'Colonne code / référence', required: true },
-                ]}
-                values={catalogCols}
-                onChange={(key, value) =>
-                  setCatalogCols((prev) => ({ ...prev, [key]: value }))
-                }
-              />
-              <div className="mt-3">
-                <p className="text-xs text-gray-500 mb-2">
-                  Aperçu ({catalogFile.rows.length} lignes, en-tête ligne {catalogFile.headerRowIndex + 1})
-                </p>
-                <DataPreview
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
+          <div className="px-5 py-3.5 border-b border-slate-100">
+            <h3 className="text-sm font-medium text-slate-700">
+              Catalogue distributeur
+            </h3>
+          </div>
+          <div className="p-5">
+            <FileUploader
+              label="Importer le catalogue distributeur"
+              onFileSelected={handleCatalogUpload}
+              fileName={catalogFile?.fileName}
+            />
+            {catalogFile && (
+              <div className="mt-4 space-y-4">
+                <ColumnMapper
                   headers={catalogFile.headers}
-                  rows={catalogFile.rows}
-                  highlightCols={catalogHighlightCols}
+                  fields={[
+                    { key: 'designation', label: 'Désignation produit', required: true },
+                    { key: 'code', label: 'Code / référence', required: true },
+                  ]}
+                  values={catalogCols}
+                  onChange={(key, value) =>
+                    setCatalogCols((prev) => ({ ...prev, [key]: value }))
+                  }
                 />
+                <div>
+                  <p className="text-xs text-slate-400 mb-2">
+                    Aperçu - {catalogFile.rows.length} lignes (en-tête L{catalogFile.headerRowIndex + 1})
+                  </p>
+                  <DataPreview
+                    headers={catalogFile.headers}
+                    rows={catalogFile.rows}
+                    highlightCols={catalogHighlightCols}
+                  />
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
       {/* Launch button */}
-      <div className="mt-8 text-center">
+      <div className="mt-8 flex items-center justify-end gap-3">
+        {!canLaunch && marketFile && catalogFile && (
+          <p className="text-xs text-slate-400">
+            Sélectionnez toutes les colonnes requises
+          </p>
+        )}
         <button
           onClick={handleLaunch}
           disabled={!canLaunch || loading}
-          className={`px-8 py-3 rounded-lg text-sm font-medium transition-colors ${
+          className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
             canLaunch && !loading
-              ? 'bg-blue-600 text-white hover:bg-blue-700'
-              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              ? 'bg-slate-800 text-white hover:bg-slate-900'
+              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
           }`}
         >
-          {loading ? 'Matching en cours...' : 'Lancer le matching'}
+          {loading ? (
+            <>
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+              </svg>
+              Appariement en cours...
+            </>
+          ) : (
+            <>
+              Lancer l&apos;appariement
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
+            </>
+          )}
         </button>
-        {!canLaunch && marketFile && catalogFile && (
-          <p className="text-xs text-gray-400 mt-2">
-            Veuillez sélectionner toutes les colonnes requises
-          </p>
-        )}
       </div>
     </div>
   );

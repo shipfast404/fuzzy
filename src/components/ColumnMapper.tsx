@@ -13,13 +13,13 @@ interface ColumnMapperProps {
 
 export function ColumnMapper({ headers, fields, values, onChange }: ColumnMapperProps) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {fields.map((field) => (
         <div key={field.key}>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-xs font-medium text-slate-600 mb-1">
             {field.label}
             {!field.required && (
-              <span className="text-gray-400 font-normal ml-1">(optionnel)</span>
+              <span className="text-slate-400 font-normal ml-1">(optionnel)</span>
             )}
           </label>
           <select
@@ -28,9 +28,9 @@ export function ColumnMapper({ headers, fields, values, onChange }: ColumnMapper
               const val = e.target.value;
               onChange(field.key, val === '' ? null : parseInt(val, 10));
             }}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
           >
-            <option value="">-- Sélectionner une colonne --</option>
+            <option value="">Sélectionner</option>
             {headers.map((header, idx) => (
               <option key={idx} value={idx}>
                 {header || `Colonne ${idx + 1}`}
