@@ -2,6 +2,8 @@
 
 const DESIGNATION_KW = ['designation', 'produit', 'nom', 'libelle', 'article', 'description'];
 const CODE_KW = ['code', 'reference', 'ref', 'enseigne', 'interne', 'sku'];
+const QTY_KW = ['quantite', 'quantity', 'qte', 'volume'];
+const UNIT_KW = ['unite', 'unit', 'cde', 'conditionnement'];
 
 function norm(s: string) {
   return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
@@ -16,10 +18,7 @@ function detect(headers: string[], keywords: string[]): number | null {
   return null;
 }
 
-export function suggestDesignation(headers: string[]): number | null {
-  return detect(headers, DESIGNATION_KW);
-}
-
-export function suggestCode(headers: string[]): number | null {
-  return detect(headers, CODE_KW);
-}
+export function suggestDesignation(headers: string[]): number | null { return detect(headers, DESIGNATION_KW); }
+export function suggestCode(headers: string[]): number | null { return detect(headers, CODE_KW); }
+export function suggestQty(headers: string[]): number | null { return detect(headers, QTY_KW); }
+export function suggestUnit(headers: string[]): number | null { return detect(headers, UNIT_KW); }

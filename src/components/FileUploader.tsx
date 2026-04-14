@@ -35,21 +35,21 @@ export function FileUploader({
           ? 'border-blue-400 bg-blue-50/60'
           : fileName
           ? 'border-emerald-300 bg-emerald-50/30'
-          : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50/50'
+          : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50/50'
       }`}
     >
       <input ref={ref} type="file" accept=".xlsx,.xls" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} className="hidden" />
       {fileName ? (
         <div className="flex items-center justify-center gap-2">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-          <span className="text-sm text-gray-700 truncate max-w-[220px]">{fileName}</span>
-          <span className="text-xs text-gray-400 ml-1">Changer</span>
+          <span className="text-sm text-slate-700 truncate max-w-[220px]">{fileName}</span>
+          <span className="text-xs text-slate-400 ml-1">Changer</span>
         </div>
       ) : (
         <>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto text-gray-300 mb-1"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="18" x2="12" y2="12" /><polyline points="9 15 12 12 15 15" /></svg>
-          <p className="text-sm text-gray-500">{label}</p>
-          <p className="text-[11px] text-gray-400 mt-0.5">.xlsx / .xls</p>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto text-slate-300 mb-1"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="18" x2="12" y2="12" /><polyline points="9 15 12 12 15 15" /></svg>
+          <p className="text-sm text-slate-500">{label}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">.xlsx / .xls</p>
         </>
       )}
     </div>
