@@ -7,6 +7,7 @@ import { buildCatalog, match } from '@/lib/matching';
 import { suggestDesignation, suggestCode, suggestQty, suggestUnit } from '@/lib/columns';
 import { saveCatalog, loadCatalog, clearCatalog } from '@/lib/storage';
 import { preferenceCount, clearPreferences } from '@/lib/preferences';
+import { verifyMatches, isSemanticEnabled } from '@/lib/semantic';
 import { useData } from '@/context/DataContext';
 import type { ParsedFile, MatchResults } from '@/lib/types';
 import { FileUploader } from '@/components/FileUploader';
@@ -77,10 +78,16 @@ export default function Home() {
   /* Full-page drop state */
   const [pageDragging, setPageDragging] = useState(false);
   const [prefCount, setPrefCount] = useState(0);
+  const [semanticAvailable, setSemanticAvailable] = useState(false);
+  const [semanticStage, setSemanticStage] = useState<'idle' | 'fuzzy' | 'semantic'>('idle');
 
   useEffect(() => {
     setPrefCount(preferenceCount());
   }, [results]);
+
+  useEffect(() => {
+    isSemanticEnabled().then(setSemanticAvailable);
+  }, []);
 
   /* Restore catalog from localStorage on mount */
   useEffect(() => {
@@ -166,29 +173,64 @@ export default function Home() {
     }
   };
 
-  const analyze = useCallback(() => {
+  const analyze = useCallback(async () => {
     if (!ready || !catFile || !aoFile) return;
     setLoading(true); setError(null);
-    setTimeout(() => {
-      try {
-        const catalog = buildCatalog(catFile.rows, catName!, catCode!);
-        const rows = aoFile.rows.map((r, i) => ({ idx: i, text: (r[aoCol!] || '').trim() })).filter((r) => r.text.length > 2);
-        const res = match(rows, catalog);
-        setResults(res);
-        setData({ catFile, aoFile, results: res });
-        saveCatalog({
-          fileName: catFile.fileName,
-          headers: catFile.headers,
-          rows: catFile.rows,
-          headerRowIndex: catFile.headerRowIndex,
-          nameCol: catName!,
-          codeCol: catCode!,
-          savedAt: Date.now(),
-        });
-        setExpanded(null);
-      } catch { setError("Erreur lors de l'analyse"); } finally { setLoading(false); }
-    }, 30);
-  }, [ready, catFile, aoFile, catName, catCode, aoCol, setData]);
+    setSemanticStage('fuzzy');
+
+    // Give React a tick to paint the loading state
+    await new Promise((r) => setTimeout(r, 30));
+
+    try {
+      const catalog = buildCatalog(catFile.rows, catName!, catCode!);
+      const rows = aoFile.rows.map((r, i) => ({ idx: i, text: (r[aoCol!] || '').trim() })).filter((r) => r.text.length > 2);
+      let res = match(rows, catalog);
+
+      // Semantic verification if available
+      if (semanticAvailable && (res.matches.length > 0 || res.nearMisses.length > 0)) {
+        setSemanticStage('semantic');
+        try {
+          const outcome = await verifyMatches(res.matches, res.nearMisses);
+          const rejectedRowIndexes = new Set(outcome.rejectedMatches.map((m) => m.marketRowIndex));
+          const promotedRowIndexes = new Set(outcome.promotedNearMisses.map((m) => m.marketRowIndex));
+
+          res = {
+            ...res,
+            matches: [
+              ...outcome.confirmedMatches.map((m) => ({ ...m, aiVerified: true })),
+              ...outcome.promotedNearMisses.map((m) => ({ ...m, aiVerified: true })),
+            ],
+            nearMisses: res.nearMisses.filter((nm) => !promotedRowIndexes.has(nm.marketRowIndex)),
+            unmatched: [
+              ...res.unmatched,
+              ...outcome.rejectedMatches.map((m) => ({ marketRowIndex: m.marketRowIndex, marketDesignation: m.marketDesignation })),
+            ].filter((u, i, arr) => arr.findIndex((x) => x.marketRowIndex === u.marketRowIndex) === i && !rejectedRowIndexes.has(-1)),
+            aiVerified: true,
+          };
+        } catch {
+          // Semantic failed — keep fuzzy results, show warning later
+        }
+      }
+
+      setResults(res);
+      setData({ catFile, aoFile, results: res });
+      saveCatalog({
+        fileName: catFile.fileName,
+        headers: catFile.headers,
+        rows: catFile.rows,
+        headerRowIndex: catFile.headerRowIndex,
+        nameCol: catName!,
+        codeCol: catCode!,
+        savedAt: Date.now(),
+      });
+      setExpanded(null);
+    } catch {
+      setError("Erreur lors de l'analyse");
+    } finally {
+      setLoading(false);
+      setSemanticStage('idle');
+    }
+  }, [ready, catFile, aoFile, catName, catCode, aoCol, setData, semanticAvailable]);
 
   const download = useCallback(() => {
     if (!results || !aoFile) return;
@@ -345,7 +387,14 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <div className="text-xs text-slate-400">{catFile && aoFile && <>{catFile.rows.length} produits catalogue &times; {aoFile.rows.length} lignes AO</>}</div>
               <button onClick={analyze} disabled={!ready || loading} className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${ready && !loading ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-600/20' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
-                {loading ? (<><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" /></svg>Analyse...</>) : 'Analyser'}
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" /></svg>
+                    {semanticStage === 'semantic' ? 'Vérification IA...' : 'Analyse...'}
+                  </>
+                ) : (
+                  <>Analyser{semanticAvailable && <span className="text-[10px] opacity-80">+ IA</span>}</>
+                )}
               </button>
             </div>
           </div>
@@ -374,7 +423,15 @@ export default function Home() {
           <div className="animate-fade-in">
             <div className="flex items-end justify-between mb-5">
               <div>
-                <p className="text-2xl font-semibold text-slate-800 tabular-nums">{results.matches.length} <span className="text-base font-normal text-slate-400">produits trouvés</span></p>
+                <div className="flex items-center gap-2">
+                  <p className="text-2xl font-semibold text-slate-800 tabular-nums">{results.matches.length} <span className="text-base font-normal text-slate-400">produits trouvés</span></p>
+                  {results.aiVerified && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z" /></svg>
+                      Vérifié IA
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-slate-500 mt-0.5">
                   {results.matches.length > 0
                     ? <>Vous pouvez répondre à <span className="font-medium text-slate-700">{pct}%</span> de cet appel d&apos;offres</>

@@ -28,6 +28,8 @@ export interface MatchedLine {
   catalogCode: string;
   overlap: number;
   alternatives: Alternative[];
+  /** Undefined if not AI-verified; true = Claude confirmed; false = Claude rejected. */
+  aiVerified?: boolean;
 }
 
 export interface NearMiss {
@@ -49,4 +51,6 @@ export interface MatchResults {
   nearMisses: NearMiss[];
   unmatched: Unmatched[];
   totalAo: number;
+  /** True when semantic AI verification was applied. */
+  aiVerified?: boolean;
 }
