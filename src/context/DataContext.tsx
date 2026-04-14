@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import type { ParsedFile, MatchResults, Alternative, MatchedLine } from '@/lib/types';
+import { rememberConfirmed, rememberDismissed } from '@/lib/preferences';
 
 interface Data {
   catFile: ParsedFile;
@@ -37,7 +38,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const alt = m.alternatives[altIdx];
       if (!alt) return prev;
 
-      // Build new match: alt becomes retained, old retained becomes alternative
+      // Learn: confirm the alternative, dismiss the previously retained match
+      rememberConfirmed(m.marketDesignation, alt.code);
+      rememberDismissed(m.marketDesignation, m.catalogCode);
+
       const newAlternatives: Alternative[] = [
         { designation: m.catalogDesignation, code: m.catalogCode, overlap: m.overlap, rowIndex: m.catalogRowIndex },
         ...m.alternatives.filter((_, i) => i !== altIdx),
@@ -67,6 +71,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (!prev) return prev;
       const m = prev.results.matches[matchIdx];
       if (!m) return prev;
+
+      rememberDismissed(m.marketDesignation, m.catalogCode);
+
       return {
         ...prev,
         results: {
@@ -86,6 +93,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (!prev) return prev;
       const nm = prev.results.nearMisses[nearMissIdx];
       if (!nm) return prev;
+
+      rememberConfirmed(nm.marketDesignation, nm.bestCode);
 
       const newMatch: MatchedLine = {
         marketRowIndex: nm.marketRowIndex,
@@ -113,6 +122,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (!prev) return prev;
       const nm = prev.results.nearMisses[nearMissIdx];
       if (!nm) return prev;
+
+      rememberDismissed(nm.marketDesignation, nm.bestCode);
+
       return {
         ...prev,
         results: {

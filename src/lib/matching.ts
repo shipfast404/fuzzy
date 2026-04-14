@@ -1,5 +1,6 @@
 import Fuse from 'fuse.js';
 import type { CatalogItem, MatchedLine, NearMiss, Unmatched, MatchResults, Alternative } from './types';
+import { getPreference } from './preferences';
 
 const ABBREVIATIONS: Record<string, string> = {
   'pce': '', 'pces': '', 'bq': 'barquette', 'bqt': 'barquette',
@@ -73,6 +74,28 @@ export function match(
   const unmatched: Unmatched[] = [];
 
   for (const { idx, text } of marketRows) {
+    const pref = getPreference(text);
+
+    // Hard override: user previously confirmed a specific catalog code for this line
+    if (pref?.confirmedCode) {
+      const confirmed = catalog.find((c) => c.code === pref.confirmedCode);
+      if (confirmed) {
+        const ci = catalog.indexOf(confirmed);
+        const ov = tokenOverlap(text, catTokens[ci]);
+        matches.push({
+          marketRowIndex: idx,
+          catalogRowIndex: confirmed.rowIndex,
+          marketDesignation: text,
+          catalogDesignation: confirmed.designation,
+          catalogCode: confirmed.code,
+          overlap: Math.max(ov, 1), // confirmed = 100% trust
+          alternatives: [],
+        });
+        continue;
+      }
+      // Confirmed code no longer in catalog: fall through to normal matching
+    }
+
     const hits = fuse.search(normalize(text));
 
     if (!hits.length) {
@@ -80,13 +103,21 @@ export function match(
       continue;
     }
 
-    // Score all top candidates by token overlap
-    const scored = hits.slice(0, 8).map((h) => {
-      const ci = catalog.indexOf(h.item);
-      const ov = tokenOverlap(text, catTokens[ci]);
-      return { item: h.item, overlap: ov };
-    });
+    // Score all top candidates by token overlap, filter out dismissed ones
+    const dismissed = new Set(pref?.dismissedCodes ?? []);
+    const scored = hits.slice(0, 8)
+      .filter((h) => !dismissed.has(h.item.code))
+      .map((h) => {
+        const ci = catalog.indexOf(h.item);
+        const ov = tokenOverlap(text, catTokens[ci]);
+        return { item: h.item, overlap: ov };
+      });
     scored.sort((a, b) => b.overlap - a.overlap);
+
+    if (scored.length === 0) {
+      unmatched.push({ marketRowIndex: idx, marketDesignation: text });
+      continue;
+    }
 
     const best = scored[0];
 
